@@ -1,6 +1,6 @@
 // Offline működés: az alkalmazás fájljait első megnyitáskor eltárolja, utána internet nélkül is betölt.
 // Új kérdések feltöltésekor a CACHE nevét (verziót) növelni kell, hogy a telefon frissítsen.
-const CACHE = 'kodkviz-v1';
+const CACHE = 'kodkviz-v2';
 const APP_FILES = [
   './',
   './index.html',

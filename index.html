@@ -236,7 +236,8 @@
     7: '7. Word – Python-képelemzés',
     8: '8. Word – Fejlehajtás és telefonidő',
     9: '9. Word – Eredmények és hangjelzések',
-    10: '10. Word – Mérési napló'
+    10: '10. Word – Mérési napló',
+    11: '11. Word – SQLite adatbázis'
   };
 
   // Minden kérdésnél az options[0] a helyes válasz; a megjelenítés összekeveri a sorrendet.
@@ -7034,6 +7035,613 @@
   }
   ]);
 
+
+  // ───────────── 11. Word – SQLite adatbázis (kódsorrendben) ─────────────
+  QUESTIONS = QUESTIONS.concat([
+  {
+    "w": 11, "topic": "Alapok · Három fogalom",
+    "q": "Mi a különbség az SQL, az SQLite és a `kinect.db` között?",
+    "options": [
+      "SQL: a parancsnyelv; SQLite: a motor, ami végrehajtja; `kinect.db`: az adatfájl.",
+      "Mind a három ugyanaz, csak más néven.",
+      "SQL: a fájl; SQLite: a nyelv; `kinect.db`: a C# osztály, ami az adatokat kezeli.",
+      "Az SQL a szerver, az SQLite az internetes kapcsolat, a `kinect.db` a jelszó."
+    ],
+    "expl": "Az SQL-lel adunk parancsot (`SELECT`, `INSERT`...), az SQLite program hajtja végre, az adatok pedig a `kinect.db` fájlban vannak. Nincs szerver és nincs internet."
+  },
+  {
+    "w": 11, "topic": "Alapok · Hol van?",
+    "q": "Hol van a program adatbázisa?",
+    "options": [
+      "Egy helyi fájlban: `Dokumentumok\\KinectFullSystem\\kinect.db`.",
+      "Egy internetes szerveren, ahová a program percenként feltölt.",
+      "A Kinect eszköz memóriájában.",
+      "A Python `phone_worker.py` mappájában, szövegfájlokban."
+    ],
+    "expl": "A `KinectDatabase.DefaultPath` adja: a Windows Dokumentumok mappájában, a `KinectFullSystem` almappában. Ezen a gépen: `E:\\c\\Dokumentumok\\KinectFullSystem\\kinect.db`. A szoftvertesztek ezt átállíthatják, hogy ne a valódi adatbázisba írjanak."
+  },
+  {
+    "w": 11, "topic": "Alapok · Honnan az SQLite?",
+    "q": "Kell-e külön telepíteni az SQLite-ot a programhoz?",
+    "options": [
+      "Nem: a Windows 10/11 beépített `winsqlite3.dll`-jét használja.",
+      "Igen, minden gépre külön le kell tölteni és telepíteni egy SQLite-szervert.",
+      "Igen, NuGet-csomagként kell a projekthez adni.",
+      "Nem, mert a Kinect SDK tartalmazza."
+    ],
+    "expl": "A `winsqlite3.dll` a Windows `System32` mappájában van. A C# a `DllImport` jelöléssel hívja a függvényeit (a `KinectDatabase.cs` végén, a `NativeMethods` osztályban)."
+  },
+  {
+    "w": 11, "topic": "Alapok · Tábla, sor, oszlop",
+    "q": "Melyik leírás igaz egy adatbázistáblára?",
+    "options": [
+      "Névvel ellátott oszlopai vannak; egy sor egy bejegyzés.",
+      "A soroknak van nevük (fejlécük), az oszlopok viszont csak sorszámozottak, mint egy listában.",
+      "Minden sor más és más oszlopokat tartalmazhat, ahogy az adott bejegyzésnek épp szüksége van rá.",
+      "Egy tábla egyetlen számot tárol."
+    ],
+    "expl": "Olyan, mint egy Excel-munkalap. Az oszlopoknak neve és típusa van (például `nev`, szöveg), a sorok értékeket tartalmaznak. Hogy miről szól egy sor, azt egy oszlop értéke mondja meg (például a `perc_mutatok`-ban a `mutato`)."
+  },
+  {
+    "w": 11, "topic": "Alapok · id",
+    "q": "Mi az `id` oszlop (`INTEGER PRIMARY KEY`)?",
+    "options": [
+      "A sor egyedi sorszáma; az SQLite adja.",
+      "Az eltelt másodpercek száma a mérés kezdete óta, amit a stopperóra ír be.",
+      "A Kinect által követett ember azonosítója, amit a testképkockából vesz át.",
+      "A felhasználó jelszava számként."
+    ],
+    "expl": "Két sornak ugyanabban a táblában sosem lehet ugyanaz az `id`-je. Beíráskor nem kell megadni: az SQLite ad egy újat, és a program `Insert` függvénye visszaadja."
+  },
+  {
+    "w": 11, "topic": "Alapok · id számozása",
+    "q": "Minden új mérésnél újra 1-ről kezdődik az `esemenyek` tábla `id`-je?",
+    "options": [
+      "Nem, az egész táblában folyamatosan nő.",
+      "Igen, minden mérés saját számozást kap, ezért a mérés első eseménye mindig 1-es.",
+      "Igen, minden nap éjfélkor visszaáll 1-re, hogy a napok jól elkülönüljenek.",
+      "Nem, mert az eseményeknek nincs `id`-jük."
+    ],
+    "expl": "Az `id` csak egyedi sorszám, nem a mérésen belüli sorszám. Hogy melyik méréshez tartozik egy esemény, azt a `munkamenet_id` mondja meg. Csak akkor kezdődik újra 1-ről, ha a `kinect.db` fájlt törlöd."
+  },
+  {
+    "w": 11, "topic": "Alapok · Idegen kulcs",
+    "q": "Mit jelent a `percek` táblában a `munkamenet_id = 15`?",
+    "options": [
+      "Hogy a 15-ös mérés része.",
+      "Hogy ez a mérés 15. perce, vagyis a `perc_sorszam` másolata egy másik oszlopban.",
+      "Hogy a mérés összesen 15 percig tartott, és ezt minden percsor megismétli.",
+      "Hogy 15 mp rossz tartás volt."
+    ],
+    "expl": "Az idegen kulcs egy másik tábla elsődleges kulcsára mutat: itt a `munkamenetek` tábla 15-ös `id`-jű sorára. A kódban: `munkamenet_id INTEGER NOT NULL REFERENCES munkamenetek(id)`. A perc sorszáma a mérésen belül a `perc_sorszam`."
+  },
+  {
+    "w": 11, "topic": "Alapok · Kapcsolatok",
+    "q": "Melyik a táblák helyes kapcsolata?",
+    "options": [
+      "felhasználó → mérés → percek → mutatók; a mérésé az események és a kalibrációk is.",
+      "percek → mérés → felhasználó; az események a percekhez, a kalibrációk a mutatókhoz tartoznak.",
+      "Minden tábla közvetlenül a felhasználóhoz tartozik, a nevével hivatkozva rá.",
+      "Nincs kapcsolat."
+    ],
+    "expl": "`munkamenetek.felhasznalo_id` → `felhasznalok.id`; `percek.munkamenet_id`, `esemenyek.munkamenet_id`, `kalibraciok.munkamenet_id` → `munkamenetek.id`; `perc_mutatok.perc_id` → `percek.id`. A név így csak egyszer szerepel."
+  },
+  {
+    "w": 11, "topic": "Alapok · ON DELETE CASCADE",
+    "q": "Mit jelent az `ON DELETE CASCADE` egy idegen kulcsnál?",
+    "options": [
+      "A rá hivatkozó sorok is törlődnek.",
+      "Hogy a sort sosem lehet törölni, mert más sorok hivatkoznak rá, és ez hibát adna.",
+      "Hogy törléskor a program automatikusan biztonsági mentést készít egy külön fájlba.",
+      "Hogy a törölt sorok a lomtárba kerülnek."
+    ],
+    "expl": "Például ha egy felhasználót törölnének, az összes mérése, perce, eseménye is törlődne, nem maradnának „árva” sorok. Ehhez a `PRAGMA foreign_keys=ON` beállítás kell, amit a program megnyitáskor bekapcsol."
+  },
+  {
+    "w": 11, "topic": "Alapok · Egy adatbázis mindenkinek",
+    "q": "Öt ember használja ugyanazt a gépet. Hány adatbázisfájl lesz?",
+    "options": [
+      "Egy közös `kinect.db`.",
+      "Öt: felhasználónként egy külön adatbázisfájl, a nevükkel elnevezve.",
+      "Annyi, ahány mérés volt, mert minden „Mérés indítása” új fájlt hoz létre.",
+      "Egy sem: mindenki saját Excel-fájlt kap."
+    ],
+    "expl": "A sorokat az idegen kulcsok választják szét, és a lekérdezések mindig szűrnek (`WHERE munkamenet_id = ?`). Az indexek (`CREATE INDEX ...`) miatt nagy táblában is gyors a keresés. Előnye, hogy a riport össze tudja hasonlítani a felhasználókat."
+  },
+  {
+    "w": 11, "topic": "Alapok · Index",
+    "q": "Mire valók a `CREATE INDEX IF NOT EXISTS ix_esemenyek_munkamenet ON esemenyek(munkamenet_id, tipus)` sorok?",
+    "options": [
+      "Gyorsítják a keresést.",
+      "Új táblát hoznak létre az eseményeknek, mérésenként és típusonként külön-külön.",
+      "Törlik a régi eseményeket, hogy a tábla ne nőjön túl nagyra.",
+      "Titkosítják a táblát."
+    ],
+    "expl": "Az index olyan, mint egy könyv tárgymutatója: az SQLite közvetlenül megtalálja a 15-ös mérés sorait. A program 5 indexet hoz létre (mérések felhasználó szerint, percek mérés szerint, mutatók perc szerint, események, kalibrációk)."
+  },
+  {
+    "w": 11, "topic": "Táblák · felhasznalok",
+    "q": "Mi van a `felhasznalok` táblában?",
+    "options": [
+      "`id`, `nev`, `letrehozva`.",
+      "A felhasználó minden mérésének összes adata, egy hosszú sorban egymás után.",
+      "A felhasználó jelszava és e-mail-címe, hogy be tudjon jelentkezni a programba.",
+      "A felhasználó testméretei centiméterben, az alaphelyzet felvételéhez."
+    ],
+    "expl": "A `nev` oszlop `NOT NULL UNIQUE COLLATE NOCASE`: nem lehet üres, nem lehet kétszer ugyanaz, és a kis- és nagybetű nem számít. A mérések a `munkamenetek` táblában vannak, a felhasználóra csak az `id`-jével hivatkoznak."
+  },
+  {
+    "w": 11, "topic": "Táblák · felhasznalok",
+    "q": "Másodszor is „jani” nevet írsz be (először „Jani” volt). Mi történik a `felhasznalok` táblával?",
+    "options": [
+      "Semmi: a `COLLATE NOCASE` miatt ugyanaz a felhasználó.",
+      "Új sor jön létre, mert a kisbetű más név.",
+      "Hibát ad, és nem indul el a mérés.",
+      "Az előző „Jani” sor törlődik, és új jön létre helyette."
+    ],
+    "expl": "A `GetOrCreateUser` megtalálja a meglévő sort, és annak az `id`-jével indítja az új mérést. A szóköz a név végén sem számít (`Trim`). A „János” vagy a „Jani2” viszont már új felhasználó."
+  },
+  {
+    "w": 11, "topic": "Táblák · munkamenetek",
+    "q": "Mit tárol egy sor a `munkamenetek` táblában?",
+    "options": [
+      "Egy mérést.",
+      "Egyetlen perc összesítőjét: jó, figyelmeztető és rossz időt, és a gép terhelését.",
+      "Egy rossz tartású szakaszt, a kezdetével, a végével és a legnagyobb szöggel.",
+      "A felhasználó nevét és jelszavát."
+    ],
+    "expl": "Oszlopai: `felhasznalo_id`, `helyzet`, `kezdes`, `befejezes`, `hossz_mp`, `allapot`, `program_verzio`, `sqlite_verzio`, `beallitasok` (a mérés küszöbei JSON-ként), `python_info` (a képelemző verziója), `riport_mappa`."
+  },
+  {
+    "w": 11, "topic": "Táblák · Mérés állapota",
+    "q": "Mit jelent egy mérésnél a `'megszakadt'` állapot?",
+    "options": [
+      "A program mérés közben leállt.",
+      "A felhasználó megnyomta a „Mérés leállítása” gombot, és minden rendben lezárult.",
+      "A mérés még most is tart, a percek folyamatosan íródnak.",
+      "A mérést törölték."
+    ],
+    "expl": "Három állapot van: `'fut'` (indításkor), `'lezarva'` (a `FinishSession` állítja leállításkor), `'megszakadt'` (a `CloseUnfinishedSessions` induláskor, ha egy mérés `'fut'` maradt, például áramszünet miatt). A már beírt percek ilyenkor is megmaradnak."
+  },
+  {
+    "w": 11, "topic": "Táblák · kalibraciok",
+    "q": "Mit tárol a `kalibraciok` tábla?",
+    "options": [
+      "A felvett alaphelyzeteket.",
+      "A Kinect kamera gyári beállításait, például a felbontást és a képkockasebességet.",
+      "A percenkénti jó, figyelmeztető és rossz időket, testrészenként.",
+      "A hangfájlok listáját."
+    ],
+    "expl": "Oszlopai: `munkamenet_id`, `tipus`, `idopont`, `t_mp`, és a szögek: `nyak_elore`, `nyak_oldal`, `torzs_teljes`, `torzs_felso`, `torzs_oldal`, `rotacio`, `fej_lehajtas` (fokban). Egy mérés alatt több is lehet, ha újra felveszed az alaphelyzetet."
+  },
+  {
+    "w": 11, "topic": "Táblák · percek",
+    "q": "Mi van egy sorban a `percek` táblában?",
+    "options": [
+      "Egy perc összesítője.",
+      "Egyetlen Kinect-képkocka 6 szöge, ahogy a `PostureAnalyzer` kiszámolta.",
+      "Egy testrész egy percének adatai: idők, átlag, szórás és maximum.",
+      "A perc hangjainak listája."
+    ],
+    "expl": "Például `jo_mp`, `figy_mp`, `rossz_mp`, `nem_ert_mp`, `figyeles_mp`, `mozgasszunet_mp`, `szunetelt_mp`, `kieses_mp`, `telefon_hasznalat_mp`, `lehajtott_fej_mp`, `cpu_atlag`, `memoria_mb`. Összesen 36 érték, a 10. Word `MinuteBucket`-jéből."
+  },
+  {
+    "w": 11, "topic": "Táblák · Oszlopnevek",
+    "q": "Mit jelent az oszlopnevek végén a `_mp`, és mit a `t_` előtag (például `t_kezdes_mp`)?",
+    "options": [
+      "`_mp` = másodperc; `t_` = a mérés eleje óta.",
+      "`_mp` = megapixel, vagyis a kép mérete; `t_` = táblázat, vagyis melyik táblából jön.",
+      "`_mp` = maximum pont, a legrosszabb érték; `t_` = tartás, vagyis a testtartáshoz tartozik.",
+      "`_mp` = mérési pont; `t_` = telefon."
+    ],
+    "expl": "Például a `rossz_mp` = 5 azt jelenti, hogy 5 másodperc rossz tartás. A `t_kezdes_mp` = 120 azt, hogy 120 másodperccel a mérés kezdete után. Ezekből rajzolja a riport az idővonalakat; a szöveges időpontok (`kezdes`) helyi idők."
+  },
+  {
+    "w": 11, "topic": "Táblák · perc_mutatok",
+    "q": "Mi van a `perc_mutatok` tábla egy sorában?",
+    "options": [
+      "Egy testrész egy percének adatai.",
+      "A perc összes testrészének adatai egyetlen hosszú sorban, oszloponként egy testrész.",
+      "Egy rossz tartású szakasz kezdete, vége és a legnagyobb eltérés.",
+      "A Kinect 25 testpontja."
+    ],
+    "expl": "Oszlopai: `perc_id`, `mutato` (például `nyak_elore`), `jo_mp`, `figy_mp`, `rossz_mp`, `nem_ert_mp`, `atlag_elteres`, `szoras_elteres`, `max_elteres`, `t_max_mp`. Percenként 6 ilyen sor van, testrészenként egy."
+  },
+  {
+    "w": 11, "topic": "Táblák · Melyik táblában?",
+    "q": "Melyik táblában keresnéd, hogy a 12. percben mennyi ideig volt rossz csak a nyakad?",
+    "options": [
+      "A `perc_mutatok`-ban (`nyak_elore`).",
+      "A `percek` tábla `rossz_mp` oszlopában, mert ott van a perc rossz ideje.",
+      "A `kalibraciok`-ban, mert a nyak szöge ott van eltárolva.",
+      "A `munkamenetek`-ben."
+    ],
+    "expl": "A `percek.rossz_mp` az összesített állapot (bármely testrész) rossz ideje. Testrészenkénti idő a `perc_mutatok`-ban van; a perchez a `perc_id`, a testrészhez a `mutato` oszlop köti."
+  },
+  {
+    "w": 11, "topic": "Táblák · esemenyek",
+    "q": "Mi kerül az `esemenyek` táblába?",
+    "options": [
+      "Ami pontos időhöz kötött.",
+      "Csak a hibaüzenetek, amiket a program futás közben kiír a képernyőre.",
+      "Percenként egy összesítő a jó, figyelmeztető és rossz időről, ugyanúgy, mint a `percek`-ben.",
+      "A belépések."
+    ],
+    "expl": "Oszlopai: `munkamenet_id`, `tipus`, `forras`, `ok`, `allapot`, `kezdes`, `t_kezdes_mp`, `vege`, `t_vege_mp`, `max_elteres`, `reszletek`, `vege_oka`. A `tipus` értékei például `rossz_tartas`, `hang`, `telefonozas`, `mod`, `rendszer`."
+  },
+  {
+    "w": 11, "topic": "Táblák · vege_oka",
+    "q": "Mire való az `esemenyek.vege_oka` oszlop?",
+    "options": [
+      "Hogy miért ért véget egy rossz szakasz.",
+      "Hogy miért állt le a program, például összeomlás vagy áramszünet miatt.",
+      "A hang lejátszásának hibáját tárolja, ha a `MediaPlayer` nem tudta lejátszani.",
+      "A mérés végének időpontját."
+    ],
+    "expl": "Értékei: `javult`, `nem_ertekelheto`, `nem_figyelt`, `adatkieses`, `meres_vege`. A riport csak a `javult` okkal lezárt szakaszt veszi javításnak, ebből számolja a reakcióidőt. Ez az oszlop a 2. sémaváltozatban került be."
+  },
+  {
+    "w": 11, "topic": "Táblák · Sorok percenként",
+    "q": "Hány sort ír be a program egy perc végén, és melyik táblákba?",
+    "options": [
+      "7-et: 1 `percek`, 6 `perc_mutatok`.",
+      "1-et, a `percek` táblába, és a testrészek adatai ugyanabba a sorba kerülnek.",
+      "6-ot, az `esemenyek` táblába, testrészenként egy eseményt.",
+      "300-at, ránézésenként egyet."
+    ],
+    "expl": "Az összesítő egy sor, a 6 testrész (nyak előre, nyak oldalra, teljes törzs, felső törzs, törzs oldalra, rotáció) hat sor. Egy 1 órás mérés így kb. 420 sor, az eseményeken kívül."
+  },
+  {
+    "w": 11, "topic": "SQL · SELECT",
+    "q": "Mit csinál ez a parancs a `GetOrCreateUser`-ben?",
+    "code": "SELECT id FROM felhasznalok WHERE nev = ?",
+    "options": [
+      "Kiolvassa a megadott nevű felhasználó `id`-jét.",
+      "Új felhasználót hoz létre a megadott névvel, és visszaadja az új sor `id`-jét.",
+      "Törli a megadott nevű felhasználót, és vele együtt az összes mérését.",
+      "Átírja a neveket."
+    ],
+    "expl": "`SELECT id` = melyik oszlop; `FROM felhasznalok` = melyik táblából; `WHERE nev = ?` = melyik sorból. A `Scalar` függvény egy értéket ad vissza: az `id`-t, vagy `null`-t, ha nincs ilyen."
+  },
+  {
+    "w": 11, "topic": "SQL · INSERT",
+    "q": "Miért nincs `id` a felsorolt oszlopok között?",
+    "code": "INSERT INTO felhasznalok (nev, letrehozva) VALUES (?, ?)",
+    "options": [
+      "Mert az új sor `id`-jét az SQLite magától adja.",
+      "Mert a felhasználóknak nincs `id`-jük.",
+      "Mert az `id`-t a felhasználó írja be a felületen.",
+      "Mert az `id` mindig 0."
+    ],
+    "expl": "Az `INSERT INTO tábla (oszlopok) VALUES (értékek)` új sort ír. Az `INTEGER PRIMARY KEY` oszlopot az SQLite tölti ki. A program `Insert` függvénye a beírás után visszaadja az új `id`-t (`sqlite3_last_insert_rowid`)."
+  },
+  {
+    "w": 11, "topic": "SQL · UPDATE",
+    "q": "Mit csinál ez a parancs a mérés leállításakor (`FinishSession`)?",
+    "code": "UPDATE munkamenetek SET befejezes = ?, hossz_mp = ?, allapot = 'lezarva' WHERE id = ?",
+    "options": [
+      "Mert azt az SQLite adja.",
+      "Mert a felhasználóknak nincs `id`-jük, csak nevük, és a többi tábla is a névvel hivatkozik rájuk.",
+      "Mert az `id`-t a felhasználó írja be a felületen a neve mellé.",
+      "Mert az `id` mindig 0."
+    ],
+    "expl": "`UPDATE` = meglévő sor módosítása, `SET` = mit állít be, `WHERE id = ?` = melyik sort. A három `?` helyére sorban a befejezés ideje, a hossz és a mérés `id`-je kerül."
+  },
+  {
+    "w": 11, "topic": "SQL · WHERE",
+    "q": "Mi történne, ha a mérés lezárásakor kimaradna a `WHERE id = ?`?",
+    "options": [
+      "Lezárja ezt az egy mérést.",
+      "Új mérést hoz létre, ami már eleve lezárt állapotban van, a megadott időkkel.",
+      "Az összes eddigi mérést lezártra állítja, a megadott befejezési idővel.",
+      "Törli a mérést."
+    ],
+    "expl": "A `WHERE` mondja meg, melyik sorokra vonatkozik a parancs. Nélküle az `UPDATE` minden sorra vonatkozik. A `CloseUnfinishedSessions` szándékosan nem `id`-re, hanem feltételre szűr: `WHERE allapot = 'fut'`."
+  },
+  {
+    "w": 11, "topic": "SQL · A ? jel",
+    "q": "Mit jelent a `?` az SQL-parancsokban?",
+    "options": [
+      "Az összes mérést lezárná.",
+      "Semmi, mert az SQLite a `WHERE` nélküli `UPDATE`-et nem engedi lefutni.",
+      "Csak az első mérést zárná le, mert az SQLite mindig az első sort módosítja.",
+      "Új mérést hozna létre."
+    ],
+    "expl": "Például `sql.Execute(\"UPDATE ... SET befejezes = ?, hossz_mp = ? ... WHERE id = ?\", endedAt, durationSeconds, sessionId)`: az első `?` helyére az első érték kerül, és így tovább. Belül az SQLite előbb értelmezi a parancsot (`sqlite3_prepare_v2`), és csak utána kapja meg az értékeket (`sqlite3_bind_...`)."
+  },
+  {
+    "w": 11, "topic": "SQL · Miért ?",
+    "q": "Mi a haszna annak, hogy az értékeket `?`-lel adja át, és nem írja bele a parancs szövegébe?",
+    "options": [
+      "Az érték helye.",
+      "Hogy az érték ismeretlen, és az SQLite a táblában lévő adatokból kitalálja.",
+      "Hogy az oszlop lehet üres, és ha nincs érték, nem kell megadni semmit.",
+      "Kérdés a felhasználónak."
+    ],
+    "expl": "Ha a nevet beleragasztaná a szövegbe, egy „O'Brien” név hibát adna, egy szándékosan furcsa név pedig parancsként futhatna le (SQL-befecskendezés). A `?`-nél a parancs előbb eldől, az érték csak utána jön, ezért mindig csak érték marad. A helyben, egy felhasználó által használt programnál főleg a hibák ellen véd."
+  },
+  {
+    "w": 11, "topic": "SQL · CREATE TABLE",
+    "q": "A program minden induláskor lefuttatja a `CREATE TABLE IF NOT EXISTS ...` parancsokat. Elvesznek a régi mérések?",
+    "options": [
+      "Egy szokatlan karakter nem rontja el, és nem válik utasítássá.",
+      "Mert így gyorsabban gépel a programozó, és rövidebb lesz a kód.",
+      "Mert így az adatbázis automatikusan titkosítva lesz a lemezen.",
+      "Így internet nélkül is fut."
+    ],
+    "expl": "Ha a tábla már létezik, a parancs nem csinál semmit. Így ugyanaz a kód először létrehozza az adatbázist, később pedig biztonságosan lefuthat a meglévőn."
+  },
+  {
+    "w": 11, "topic": "SQL · Oszloptípusok",
+    "q": "Mit jelent a `nev TEXT NOT NULL UNIQUE COLLATE NOCASE` oszlopleírás?",
+    "options": [
+      "Nem, csak a hiányzó táblák jönnek létre.",
+      "Igen, minden induláskor üres táblák jönnek létre, ezért a riportot mindig a mérés végén kell elkészíteni.",
+      "Igen, de előtte a program automatikusan biztonsági mentést készít a régi adatokról.",
+      "Csak a percek vesznek el."
+    ],
+    "expl": "Típusok: `INTEGER` (egész szám), `REAL` (tört szám, például 12,4 mp), `TEXT` (szöveg). `NOT NULL`: kötelező. `UNIQUE`: egyedi. `COLLATE NOCASE`: kis- és nagybetűtől független összehasonlítás."
+  },
+  {
+    "w": 11, "topic": "Megnyitás · Két réteg",
+    "q": "Mi a különbség a `KinectDatabase` és az `SqliteDatabase` osztály között?",
+    "options": [
+      "Szöveg, kötelező, egyedi, kis- és nagybetűtől független.",
+      "Egész szám, ami lehet üres, és több sorban is ismétlődhet ugyanaz az érték.",
+      "Tört szám, legfeljebb 3 tizedessel, mert a program kerekít.",
+      "Titkosított szöveg."
+    ],
+    "expl": "Mindkettő C# osztály a `KinectDatabase.cs` fájlban. A felső réteg (`GetOrCreateUser`, `StartSession`, `InsertMinute`...) az alsó réteg függvényeit (`Execute`, `Insert`, `Query`...) hívja, a `sql` változóján keresztül. Az adat maga a `kinect.db` fájl."
+  },
+  {
+    "w": 11, "topic": "Megnyitás · Mikor?",
+    "q": "Mikor nyílik meg az adatbázis?",
+    "options": [
+      "A `KinectDatabase` ismeri a tábláinkat; az `SqliteDatabase` SQL-t futtat.",
+      "A `KinectDatabase` maga az adatfájl a lemezen, az `SqliteDatabase` pedig a Windows része.",
+      "Az `SqliteDatabase` a Pythonban van, a `KinectDatabase` a C#-ban.",
+      "Ugyanaz, két néven."
+    ],
+    "expl": "`if (database != null) return; database = new KinectDatabase(databasePath);` Ha már nyitva van, nem csinál semmit. Megnyitás után rögtön lefut a `CloseUnfinishedSessions` is."
+  },
+  {
+    "w": 11, "topic": "Megnyitás · Konstruktor",
+    "q": "Mi a `KinectDatabase` konstruktorának helyes sorrendje?",
+    "options": [
+      "Első használatkor (`EnsureOpen`).",
+      "Minden perc végén újra megnyílik, majd a mentés után azonnal bezáródik.",
+      "Csak a riport készítésekor, a mérés leállítása után.",
+      "A `MainWindow_Loaded`-ben, a Kinect bekapcsolásakor, a kamerával együtt."
+    ],
+    "expl": "`Directory.CreateDirectory(...)` → `sql = new SqliteDatabase(path)` → `sql.ExecuteScript(Schema)` → `UpgradeOldDatabase()` → `PRAGMA user_version = 3`. Ha a fájl még nincs meg, az SQLite üresen létrehozza."
+  },
+  {
+    "w": 11, "topic": "Megnyitás · Frissítés",
+    "q": "Mit csinál az `UpgradeOldDatabase`?",
+    "options": [
+      "Mappa → megnyitás → táblák → kiegészítés → verzió.",
+      "A régi táblák törlése → új fájl létrehozása → a táblák újra létrehozása üresen.",
+      "Felhasználó létrehozása → mérés indítása → az első perc mentése.",
+      "Python → Kinect → fájl."
+    ],
+    "expl": "A `PRAGMA table_info(...)` kiolvassa egy tábla oszlopait. Ha hiányzik a `vege_oka` (események) vagy a `szunetelt_mp` (percek), `ALTER TABLE ... ADD COLUMN`-nal pótolja (üresen, illetve 0 értékkel). A sémaverzió most 3 (`SchemaVersion`)."
+  },
+  {
+    "w": 11, "topic": "Megnyitás · PRAGMA",
+    "q": "Mit állít be a `PRAGMA foreign_keys=ON` és a `PRAGMA busy_timeout=3000`?",
+    "options": [
+      "Hiányzó új oszlopot pótol; a régi adatok megmaradnak.",
+      "Törli a régi méréseket, hogy legyen hely az újaknak, és a fájl kisebb maradjon.",
+      "Letölti az SQLite legújabb verzióját az internetről, és kicseréli a régit.",
+      "Újraszámolja a régi méréseket."
+    ],
+    "expl": "Négy beállítás van: `journal_mode=WAL` (gyors írás, összeomláskor a beírt sorok megmaradnak), `synchronous=NORMAL`, `foreign_keys=ON` (hivatkozások és `ON DELETE CASCADE`), `busy_timeout=3000` (ha például a riport épp olvas)."
+  },
+  {
+    "w": 11, "topic": "Megnyitás · DllImport",
+    "q": "Mit jelent a `[DllImport(\"winsqlite3.dll\")]` jelölés?",
+    "options": [
+      "Kulcsellenőrzés be; foglalt fájlnál 3 mp várakozás.",
+      "Titkosítja a fájlt egy 3000 bites kulccsal, és bekapcsolja a jelszavas védelmet.",
+      "Legfeljebb 3000 sort enged táblánként, a többit törli.",
+      "3 mp-enként automatikus mentés."
+    ],
+    "expl": "A `NativeMethods` osztályban vannak felsorolva az SQLite függvényei (`sqlite3_open_v2`, `sqlite3_prepare_v2`, `sqlite3_bind_...`, `sqlite3_step`...). Ezeket nem kell tanulni; elég tudni, hogy a tényleges munkát ezek végzik."
+  },
+  {
+    "w": 11, "topic": "Alsó réteg · Insert",
+    "q": "Miben különbözik az `SqliteDatabase.Insert` az `Execute`-tól?",
+    "options": [
+      "A C# meghívhatja a Windows SQLite-függvényét.",
+      "A program indításkor letölti a `winsqlite3.dll`-t az internetről, ha még nincs a gépen.",
+      "A DLL-t a Python futtatja, és az eredményt visszaküldi a C#-nak.",
+      "A függvény C#-ban van."
+    ],
+    "expl": "Az új `id` kell ahhoz, hogy a többi sor hivatkozni tudjon rá: a mérés `id`-jét kapja minden perc, a percsor `id`-jét a 6 mutatósor. Az `Insert` belül meghívja az `Execute`-ot, majd a `sqlite3_last_insert_rowid`-t."
+  },
+  {
+    "w": 11, "topic": "Alsó réteg · Query vagy Scalar",
+    "q": "Mikor `Query`, és mikor `Scalar`?",
+    "options": [
+      "Az `Insert` az új `id`-t adja vissza; az `Execute` az érintett sorok számát.",
+      "Az `Insert` olvas az adatbázisból, az `Execute` pedig ír bele.",
+      "Az `Insert` törli a sort, az `Execute` létrehozza.",
+      "Semmiben."
+    ],
+    "expl": "Mindkettő `SELECT`-et futtat. A `Query` `List<object[]>`-et ad: minden sor egy tömb. A `Scalar` az első sor első értékét adja, például a `GetOrCreateUser` a felhasználó `id`-jét. A felhasználónevek listája (`UserNames`) `Query`-vel jön."
+  },
+  {
+    "w": 11, "topic": "Alsó réteg · ExecuteScript",
+    "q": "Mire való az `ExecuteScript`?",
+    "options": [
+      "`Query`: sok sor; `Scalar`: egy érték.",
+      "`Query`: ír az adatbázisba; `Scalar`: töröl belőle, ha a feltétel teljesül.",
+      "`Query`: a Pythonból használható; `Scalar`: csak a C#-ból.",
+      "`Query` gyorsabb."
+    ],
+    "expl": "Pontosvesszővel elválasztott parancsokat futtat, `?` nélkül. Ezt használja a konstruktor a `Schema`-hoz, a `PRAGMA`-khoz, és az `InTransaction` a tranzakció kezdetéhez és végéhez. A bezárás a `Dispose`."
+  },
+  {
+    "w": 11, "topic": "Mentés · Ki mit csinál?",
+    "q": "Melyik osztály dönti el, mit és mikor kell menteni, és melyik írja be?",
+    "options": [
+      "Értékek nélküli parancsok egyben.",
+      "Python szkriptek futtatására, például a riportkészítő elindítására a mérés után.",
+      "Egy `SELECT` eredményének kiírására a képernyőre, táblázatként.",
+      "Bezárásra."
+    ],
+    "expl": "Például a `DatabaseSessionLogger.WriteMinute` hívja a `database.InsertMinute`-ot, a `WriteEvent` az `InsertEvent`-et, a `StopAndSave` a `FinishSession`-t."
+  },
+  {
+    "w": 11, "topic": "Mentés · Mérés indítása",
+    "q": "Mi történik az adatbázisban a „Mérés indítása” gombnál?",
+    "options": [
+      "A `DatabaseSessionLogger` dönt; a `KinectDatabase` ír.",
+      "A `KinectDatabase` dönt, mit kell menteni; a `PostureAnalyzer` írja be a szögeket.",
+      "A Python dönt; a C# csak továbbítja.",
+      "A `MainWindow` dönt és ír, a többi osztály nem vesz részt a mentésben."
+    ],
+    "expl": "`GetOrCreateUser` (`SELECT`, ha kell `INSERT`) → `StartSession` (`INSERT INTO munkamenetek ... 'fut'`). Az új mérés `id`-je lesz a `LastSessionId`, ettől kezdve minden perc és esemény ezzel a számmal kerül be."
+  },
+  {
+    "w": 11, "topic": "Mentés · InsertMinute",
+    "q": "Hogyan tudja a 6 mutatósor, melyik perchez tartozik?",
+    "code": "long minuteId = sql.Insert(\"INSERT INTO percek (...) VALUES (...)\", ...);\nforeach (MetricMinute metric in minute.Metrics)\n    sql.Execute(\"INSERT INTO perc_mutatok (perc_id, mutato, ...) VALUES (?, ?, ...)\", minuteId, metric.Key, ...);",
+    "options": [
+      "Felhasználó keresése vagy létrehozása, aztán új mérés `'fut'`-tal.",
+      "Az összes régi mérést törli, hogy az új mérés tiszta lappal induljon.",
+      "Rögtön 60 üres percsort ír be, amit a mérés alatt tölt ki.",
+      "Csak a memóriában jegyzi fel."
+    ],
+    "expl": "Például a percsor `id`-je 812 lesz, és a 6 mutatósor `perc_id`-je mind 812. A mutatósorok saját `id`-je (például 4861–4866) ettől független."
+  },
+  {
+    "w": 11, "topic": "Mentés · Tranzakció",
+    "q": "Mit csinál az `InTransaction`?",
+    "code": "ExecuteScript(\"BEGIN;\");\ntry { work(); ExecuteScript(\"COMMIT;\"); }\ncatch { ExecuteScript(\"ROLLBACK;\"); throw; }",
+    "options": [
+      "A percsor `id`-jét kapják a `perc_id`-be.",
+      "A perc sorszámát (`perc_sorszam`) kapják, mert az mérésen belül egyedi.",
+      "A mérés `id`-jét kapják; hogy melyik perc, az a sorrendből derül ki.",
+      "Ugyanazt az `id`-t kapják."
+    ],
+    "expl": "A perc mentése így 7 sort ír egy egységben. Ha a 4. mutatósornál hiba lenne, a `ROLLBACK` visszavonja az előzőeket is, és nem marad félkész perc. Mellékhatásként gyorsabb is, mert a 7 sor egyszerre íródik a fájlba."
+  },
+  {
+    "w": 11, "topic": "Mentés · Sikertelen perc",
+    "q": "Mi történik, ha egy perc mentése nem sikerül (például a fájl foglalt)?",
+    "options": [
+      "Vagy mind sikerül, vagy egyik sem.",
+      "A parancsokat egyenként, külön-külön véglegesíti, hogy egy hiba ne érintse a többit.",
+      "Hiba esetén automatikusan háromszor újrapróbálja a parancsokat.",
+      "Később futtatja őket."
+    ],
+    "expl": "A `DatabaseSessionLogger.WriteMinute` csak sikeres mentés után törli a percet a memóriából (`minutes.Confirm`). A testtartás-figyelés és a hangok közben mennek tovább; a hibát a program kiírja (`LastError`)."
+  },
+  {
+    "w": 11, "topic": "Mentés · null",
+    "q": "Egy hang eseményének sorában a `vege` és a `t_vege_mp` üres (`null`). Mit jelent ez?",
+    "options": [
+      "Visszavonás; a perc a memóriában marad, 5 mp múlva újra.",
+      "A perc elvész, és a program a következő perccel folytatja.",
+      "A mérés leáll, és a program bezáródik, hogy ne legyen hibás adat.",
+      "A félkész perc bent marad."
+    ],
+    "expl": "A `null` azt jelenti, hogy nincs adat, és nem ugyanaz, mint a 0. Az `InsertEvent`-ben: `endedAt.HasValue ? (object)endedAt.Value : null`. Ugyanígy üres a `vege_oka`, ha nem rossz tartású szakaszról van szó."
+  },
+  {
+    "w": 11, "topic": "Mentés · Kerekítés",
+    "q": "Miért kerekíti a program az értékeket 3 tizedesre mentés előtt (`Round`)?",
+    "options": [
+      "Nincs értéke: a hang pillanatszerű.",
+      "Hogy a vége 0 másodperc, vagyis a hang a mérés legelején szólt.",
+      "Hogy a mentés hibás volt, és a program nem tudta beírni a végét.",
+      "A hang még most is szól."
+    ],
+    "expl": "`Math.Round(value, 3)`. A hiányzó vagy végtelen értéket (`NaN`, végtelen) nem kerekíti, hanem jelzi, hogy nincs érték."
+  },
+  {
+    "w": 11, "topic": "Mentés · Hibatűrés",
+    "q": "Leáll-e a testtartás-figyelés, ha az adatbázisba írás nem sikerül?",
+    "options": [
+      "Mert ennyi elég, és a fájl kisebb.",
+      "Mert az SQLite nem tud 3 tizedesnél pontosabb számot tárolni.",
+      "Hogy a riport mindenhol egész számokat mutathasson.",
+      "Hogy szép legyen."
+    ],
+    "expl": "A `DatabaseSessionLogger` minden mentést egy védett blokkban (`Safely`) végez. A sikertelen percet a memóriában, a sikertelen eseménysort egy várakozó listában (`pendingRowWrites`) tartja, és később újra próbálja."
+  },
+  {
+    "w": 11, "topic": "Riport · Ki olvas?",
+    "q": "Ki olvassa vissza az adatokat a riporthoz, és ír-e az adatbázisba?",
+    "options": [
+      "Nem, mennek tovább.",
+      "Igen, azonnal leáll, hogy ne vesszen el adat, és hibaüzenetet ír ki.",
+      "Igen, de 5 mp múlva magától újraindul.",
+      "Nem, de a hangok elnémulnak a mérés végéig."
+    ],
+    "expl": "A mérés leállítása után a `MainWindow` (`MainWindow.MeasurementReport.cs`) a háttérben indítja: `--db` (a fájl), `--munkamenet` (a mérés `id`-je), `--kimenet` (a riport mappája). A Python beépített `sqlite3` moduljával ugyanazt a `kinect.db`-t nyitja meg."
+  },
+  {
+    "w": 11, "topic": "Riport · SELECT",
+    "q": "Mit kér ki ez a parancs a riportban?",
+    "code": "SELECT * FROM percek WHERE munkamenet_id = ? ORDER BY perc_sorszam",
+    "options": [
+      "Egy Python-program; csak olvas.",
+      "A `DatabaseSessionLogger`; olvas, és a számolt eredményeket vissza is írja.",
+      "A `KinectDatabase.FinishSession`, ami a riport után mindent töröl.",
+      "A felhasználó Excelben."
+    ],
+    "expl": "`*` = minden oszlop; `WHERE munkamenet_id = ?` = csak ennek a mérésnek a percei; `ORDER BY perc_sorszam` = sorba rendezve. A `?` helyére a `--munkamenet` szám kerül."
+  },
+  {
+    "w": 11, "topic": "Riport · JOIN",
+    "q": "Mit csinál a `JOIN` ebben a lekérdezésben?",
+    "code": "SELECT m.*, f.nev AS felhasznalo FROM munkamenetek m\nJOIN felhasznalok f ON f.id = m.felhasznalo_id WHERE m.id = ?",
+    "options": [
+      "A mérés percei, sorszám szerint.",
+      "Az összes mérés összes perce, véletlen sorrendben, minden felhasználótól.",
+      "Csak a rossz percek, amikben a `rossz_mp` nagyobb nullánál.",
+      "A percek száma."
+    ],
+    "expl": "Az eredmény egy sor: a mérés minden adata és a felhasználó neve, pedig a név egy másik táblában van. Az `m` és az `f` rövid nevek a táblákra, az `AS felhasznalo` az oszlop új neve. Ez a kulcsok értelme: a név egy helyen van, és a `JOIN` összekapcsolja."
+  },
+  {
+    "w": 11, "topic": "Riport · GROUP BY",
+    "q": "Mit ad vissza a napi trend lekérdezése?",
+    "code": "SELECT substr(m.kezdes, 1, 10) AS nap, SUM(p.jo_mp) AS jo, SUM(p.rossz_mp) AS rossz\nFROM munkamenetek m JOIN percek p ON p.munkamenet_id = m.id\nWHERE m.felhasznalo_id = ? GROUP BY nap ORDER BY nap",
+    "options": [
+      "A mérés mellé teszi a felhasználó sorát.",
+      "Két különböző mérést egyetlen sorrá olvaszt össze, és összeadja az idejüket.",
+      "Új felhasználót hoz létre a mérés adataiból, ha még nincs ilyen.",
+      "Törli a nevet."
+    ],
+    "expl": "`substr(..., 1, 10)` = a dátum az időpontból; `GROUP BY nap` = naponként csoportosít; `SUM(...)` = csoportonként összead. Ebből rajzolja a riport, javul-e a tartás napról napra."
+  },
+  {
+    "w": 11, "topic": "Riport · Számolás",
+    "q": "Hogyan számolja a riport a jó tartás arányát?",
+    "options": [
+      "Naponként egy sort, a napi jó és rossz idővel.",
+      "Percenként egy sort az összes felhasználóról, a felhasználó nevével együtt.",
+      "Egyetlen számot: a felhasználó összes rossz idejét az összes mérésből.",
+      "Csak a neveket."
+    ],
+    "expl": "Az SQL csak az adatokat adja; a számolás Pythonban történik (12. Word). A nem értékelhető időről nem tudjuk, milyen volt a tartás, ezért se jónak, se rossznak nem szabad venni."
+  },
+  {
+    "w": 11, "topic": "Összefoglaló",
+    "q": "Melyik a legpontosabb összefoglalás a 11. Wordről?",
+    "options": [
+      "Helyi SQLite, 6 tábla kulcsokkal, percenként 7 sor; a riport csak olvas.",
+      "Minden képkocka egy sor egy internetes adatbázisban, amit a Python percenként feltölt.",
+      "Felhasználónként külön Excel-fájl, amit a riport a végén átír és kiegészít.",
+      "Egy tábla, kulcsok nélkül."
+    ],
+    "expl": "SQL = nyelv, SQLite = motor (`winsqlite3.dll`), `kinect.db` = adatfájl. Felhasználó → mérés → percek → mutatók; mérés → események, kalibrációk. `KinectDatabase` (mi tábláink) → `SqliteDatabase` (SQL futtatás). Értékek `?`-lel. A riport `SELECT`-tel és `JOIN`-nal olvas."
+  }
+  ]);
+
   // ───────────── Állapot ─────────────
   var state = {
     word: 4,
@@ -7083,7 +7691,7 @@
       var n = parseInt(v, 10);
       if (WORDS[n]) return n;
     } catch (e) {}
-    return 10;
+    return 11;
   }
   // Sorrend: alapból a kód sorrendjében (tanuláshoz), választhatóan keverve (gyakorláshoz).
   function loadMixed() {
@@ -7124,7 +7732,7 @@
   }
 
   function renderChips() {
-    var items = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 'all'];
+    var items = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 'all'];
     chipsEl.innerHTML = '';
     items.forEach(function (w) {
       var b = document.createElement('button');
@@ -7132,7 +7740,7 @@
       b.className = 'chip';
       b.id = 'chip-' + w;
       b.setAttribute('aria-pressed', String(state.word === w));
-      var label = w === 'all' ? 'Mind a tíz Word' : WORDS[w];
+      var label = w === 'all' ? 'Mind a tizenegy Word' : WORDS[w];
       b.innerHTML = esc(label) + ' <span class="n">' + indicesFor(w).length + '</span>';
       b.addEventListener('click', function () { startRound(w, null); });
       chipsEl.appendChild(b);
@@ -7161,7 +7769,7 @@
   function renderStatus() {
     var total = state.order.length;
     var done = state.pos + (state.answered ? 1 : 0);
-    var label = state.word === 'all' ? 'Mind a tíz Word' : WORDS[state.word];
+    var label = state.word === 'all' ? 'Mind a tizenegy Word' : WORDS[state.word];
     statusLeft.innerHTML = '<strong>' + esc(label) + '</strong>';
     statusRight.innerHTML = 'Kérdés <strong>' + Math.min(state.pos + 1, total) + '</strong> / ' + total +
       ' · jó válasz: <strong>' + state.correct + '</strong>';
@@ -7245,7 +7853,7 @@
     var html = '<div class="eyebrow">Eredmény</div>' +
       '<p class="score">' + state.correct + ' / ' + total + '</p>';
     if (state.missed.length === 0) {
-      html += '<p>Mindegyik jó lett. Próbáld ki egy másik Word kérdéseit, vagy a „Mind a tíz Word” kört.</p>';
+      html += '<p>Mindegyik jó lett. Próbáld ki egy másik Word kérdéseit, vagy a „Mind a tizenegy Word” kört.</p>';
     } else {
       html += '<p>Ezeket érdemes még egyszer átnézni:</p><ul class="missed" role="list">';
       state.missed.forEach(function (idx) {
